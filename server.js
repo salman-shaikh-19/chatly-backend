@@ -48,6 +48,21 @@ io.on("connection", (socket) => {
     console.log("Online users:", onlineUsers);
   });
 
+// delete message (soft delete)
+socket.on("deleteMessage", ({ chatId, messageId, senderId, receiverId }) => {
+  const deletedMsg = { chatId, messageId, isDeleted: true, deletedAt: new Date() };
+
+  const senderSocketId = onlineUsers[senderId];
+  const receiverSocketId = onlineUsers[receiverId];
+
+  if (senderSocketId) io.to(senderSocketId).emit("deleteMessage", deletedMsg);
+  if (receiverSocketId) io.to(receiverSocketId).emit("deleteMessage", deletedMsg);
+
+  console.log("Deleted message emitted:", deletedMsg);
+});
+
+
+  
   // user logout
   socket.on("userLogout", (userId, ack) => {
     if (onlineUsers[userId]) {
