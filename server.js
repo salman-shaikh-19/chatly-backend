@@ -1,8 +1,16 @@
+// Utility function to get a chat ID for two users
+function getChatId(userId1, userId2) {
+  // Make sure the smaller ID comes first for consistency
+  const [idA, idB] = [userId1, userId2].sort();
+  return `${idA}_${idB}`;
+}
+
+
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
-const { getChatId } = require("../src/common/utils/getChatId");
+
 
 const app = express();
 app.use(cors());
