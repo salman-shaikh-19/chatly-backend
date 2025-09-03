@@ -19,7 +19,10 @@ const server = http.createServer(app);
 // Update CORS to allow only your frontend domain
 const io = new Server(server, {
   cors: {
-    origin: ["https://chatly-app-pearl.vercel.app"], // your Vercel frontend
+origin: [
+      "http://localhost:5173",      // dev
+      "https://chatly-app-pearl.vercel.app" // vercel frontend
+    ],
     methods: ["GET", "POST"],
   },
 });
