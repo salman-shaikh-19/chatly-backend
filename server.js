@@ -35,6 +35,7 @@ origin: [
   },
 });
 
+
 // store mapping { userId: socketId }
 let onlineUsers = {};
 
@@ -43,9 +44,9 @@ io.on("connection", (socket) => {
 
   // user comes online
   socket.on("userOnline", (userId) => {
-    onlineUsers[userId] = socket.id;
-    io.emit("onlineUsers", Object.keys(onlineUsers).map(Number));
-    console.log("Online users:", onlineUsers);
+    onlineUsers[userId] = socket.id; // map userId to socketId
+    io.emit("onlineUsers", Object.keys(onlineUsers).map(Number)); // send userIds only
+    console.log("Online users from server:", onlineUsers);
   });
 
 // delete message (soft delete)
@@ -62,45 +63,157 @@ socket.on("deleteMessage", ({ chatId, messageId, senderId, receiverId }) => {
 });
 
 
+socket.on("createGroup", (groupDetails) => {
+  // notify all group members
+  groupDetails.groupUsers.forEach(({ userId }) => {
+    const socketId = onlineUsers[userId];
+    if (socketId) {
+      io.to(socketId).emit("createGroup", groupDetails);
+    }
+  });
+});
+// group message
+socket.on("groupMessage", ({ groupId, senderId, message, messageId, timestamp, groupUsers }) => {
+  const msgObj = { groupId, senderId, message, messageId, timestamp: timestamp || new Date().toISOString() };
+
+  // Broadcast to all group members
+  groupUsers.forEach(({ userId }) => {
+    const socketId = onlineUsers[userId];
+    if (socketId) {
+      io.to(socketId).emit("groupMessage", msgObj);
+    }
+  });
+
+  console.log("Group message sent:", msgObj);
+});
+
+// group typing indicator
+socket.on("groupTyping", ({ groupId, senderId, typing, groupUsers }) => {
+  groupUsers.forEach(({ userId }) => {
+    if (userId !== senderId) {
+      const socketId = onlineUsers[userId];
+      if (socketId) {
+        io.to(socketId).emit("groupTyping", { groupId, senderId, typing });
+      }
+    }
+  });
+});
+
+// update group message
+socket.on("updateGroupMessage", ({ groupId, messageId, senderId, message, groupUsers }) => {
+  const updatedMsg = { groupId, messageId, message, updatedAt: new Date(), senderId };
+
+  groupUsers.forEach(({ userId }) => {
+    const socketId = onlineUsers[userId];
+    if (socketId) {
+      io.to(socketId).emit("updateGroupMessage", updatedMsg);
+    }
+  });
+
+  console.log("Group message updated:", updatedMsg);
+});
+
+// delete group message
+socket.on("deleteGroupMessage", ({ groupId, messageId, senderId, groupUsers }) => {
+  const deletedMsg = { groupId, messageId, isDeleted: true, deletedAt: new Date() };
+
+  groupUsers.forEach(({ userId }) => {
+    const socketId = onlineUsers[userId];
+    if (socketId) {
+      io.to(socketId).emit("deleteGroupMessage", deletedMsg);
+    }
+  });
+
+  console.log("Group message deleted:", deletedMsg);
+});
+
+// delete all group messages
+socket.on("deleteAllGroupMessages", ({ groupId, senderId, groupUsers }) => {
+  const deleteAllMsg = { groupId, deleteAll: true, deletedAt: new Date() };
+
+  groupUsers.forEach(({ userId }) => {
+    if (userId === senderId) {
+      const socketId = onlineUsers[userId];
+      if (socketId) {
+        io.to(socketId).emit("deleteAllGroupMessages", deleteAllMsg);
+      }
+    }
+  });
+
+  console.log("All group messages deleted for user:", senderId);
+});
+
   
-  // user logout
-  socket.on("userLogout", (userId, ack) => {
+  socket.on("userLogout", (userId,ack) => {
     if (onlineUsers[userId]) {
+      console.log(`User ${userId} logged out`);
       delete onlineUsers[userId];
       io.emit("onlineUsers", Object.keys(onlineUsers).map(Number));
     }
-    if (typeof ack === "function") ack("ok");
+  // console.log('logged out');
+  if (typeof ack === "function") {
+  ack("ok");
+}
+  
   });
 
   // private message
-  socket.on("privateMessage", ({ senderId, receiverId, message, messageId, timestamp }) => {
-    const receiverSocketId = onlineUsers[receiverId];
-    const msgObj = { senderId, receiverId, message, messageId, timestamp: timestamp || new Date() };
-    if (receiverSocketId) io.to(receiverSocketId).emit("privateMessage", msgObj);
-    socket.emit("privateMessage", msgObj);
-  });
+socket.on("privateMessage", ({ senderId, receiverId, message, messageId, timestamp }) => {
+  const receiverSocketId = onlineUsers[receiverId];
 
-  // update message
-  socket.on("updateMessage", ({ chatId, senderId, receiverId, messageId, message }) => {
-    const updatedMsg = { chatId, messageId, message, updatedAt: new Date() };
-    const senderSocketId = onlineUsers[senderId];
-    const receiverSocketId = onlineUsers[receiverId];
-    if (senderSocketId) io.to(senderSocketId).emit("updateMessage", updatedMsg);
-    if (receiverSocketId) io.to(receiverSocketId).emit("updateMessage", updatedMsg);
-  });
+  const msgObj = { senderId, receiverId, message, messageId, timestamp: timestamp || new Date() };
+
+  if (receiverSocketId) {
+    io.to(receiverSocketId).emit("privateMessage", msgObj);
+  }
+
+  // also send back to sender
+  socket.emit("privateMessage", msgObj);
+});
+
+
+// update message
+socket.on("updateMessage", ({ chatId, senderId, receiverId, messageId, message }) => {
+  const updatedMsg = { chatId, messageId,message, updatedAt: new Date() };
+
+  const senderSocketId = onlineUsers[senderId];
+  const receiverSocketId = onlineUsers[receiverId];
+
+  if (senderSocketId) io.to(senderSocketId).emit("updateMessage", updatedMsg);
+  if (receiverSocketId) io.to(receiverSocketId).emit("updateMessage", updatedMsg);
+
+  console.log("Updated message emitted:", updatedMsg);
+});
+
+
+
+
+
 
   // typing indicator
   socket.on("typing", ({ senderId, receiverId, typing }) => {
-    const receiverSocketId = onlineUsers[receiverId];
-    if (receiverSocketId) io.to(receiverSocketId).emit("typing", { userId: senderId, typing });
-  });
+    //  console.log("inside typing serveris"+senderId);
+  const receiverSocketId = onlineUsers[receiverId];
+  if (receiverSocketId) {
+    // console.log('inside'+receiverSocketId);
+    io.to(receiverSocketId).emit("typing", { userId: senderId, typing });
+    
+  }
+});
 
-  // disconnect
-  socket.on("disconnect", () => {
+
+  // user disconnects
+
+socket.on("disconnect", () => {
+    console.log(`User disconnected: ${socket.id}`);
     for (let userId in onlineUsers) {
-      if (onlineUsers[userId] === socket.id) delete onlineUsers[userId];
+      if (onlineUsers[userId] === socket.id) {
+        console.log(`Removing user ${userId} from onlineUsers`);
+        delete onlineUsers[userId];
+      }
     }
     io.emit("onlineUsers", Object.keys(onlineUsers).map(Number));
+    console.log("Online users after disconnect:", onlineUsers);
   });
 });
 
