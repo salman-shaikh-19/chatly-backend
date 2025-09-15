@@ -172,6 +172,20 @@ socket.on("privateMessage", ({ senderId, receiverId, message, messageId, timesta
 });
 
 
+io.on("connection", (socket) => {
+  socket.on("offer", ({ to, from, sdp }) => {
+    io.to(to).emit("offer", { from, sdp });
+  });
+
+  socket.on("answer", ({ to, from, sdp }) => {
+    io.to(to).emit("answer", { from, sdp });
+  });
+
+  socket.on("ice-candidate", ({ to, from, candidate }) => {
+    io.to(to).emit("ice-candidate", { from, candidate });
+  });
+});
+
 // update message
 socket.on("updateMessage", ({ chatId, senderId, receiverId, messageId, message }) => {
   const updatedMsg = { chatId, messageId,message, updatedAt: new Date() };
