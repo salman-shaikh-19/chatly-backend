@@ -113,6 +113,78 @@ socket.on("updateGroupMessage", ({ groupId, messageId, senderId, message, groupU
   console.log("Group message updated:", updatedMsg);
 });
 
+
+
+
+async function handleGroupExit({ groupId, userId, action, removedById = null, isAdmin = false }) {
+  try {
+    // The actual group membership updates will be handled by the client-side Redux store
+    // and persisted to the database through your API endpoints
+    
+    const actionType = action === 'removed' ? 'removed' : 'left';
+    
+    const payload = {
+      groupId,
+      action: actionType,
+      userId,
+      removedById,
+      isAdmin,
+      timestamp: new Date().toISOString()
+    };
+
+    // Notify all connected clients about the group update
+    // Each client will handle the update based on their Redux store
+    io.emit('groupUpdate', payload);
+    
+    console.log(`User ${userId} ${actionType} from group ${groupId}`);
+    
+  } catch (error) {
+    console.error('Error handling group exit:', error);
+    
+    // Notify the user who initiated the action if they're still connected
+    const initiatorSocketId = onlineUsers[removedById || userId];
+    if (initiatorSocketId) {
+      io.to(initiatorSocketId).emit('groupUpdateError', {
+        groupId,
+        error: 'Failed to process group update',
+        action: action === 'removed' ? 'remove' : 'leave'
+      });
+    }
+  }
+}
+
+
+// Handle group leave/remove events
+socket.on("groupUpdate", async ({ groupId, action, userId, removedById, isAdmin = false }) => {
+  if (action === 'left' || action === 'removed') {
+    await handleGroupExit({ 
+      groupId, 
+      userId, 
+      action, 
+      removedById,
+      isAdmin 
+    });
+  }
+});
+
+// For backward compatibility
+socket.on("leaveGroup", async (data) => {
+  await handleGroupExit({ ...data, action: "left" });
+});
+
+socket.on("removeGroupUser", async ({ groupId, userId, removedById, isAdmin = false }) => {
+  await handleGroupExit({ 
+    groupId, 
+    userId, 
+    action: "removed", 
+    removedById, 
+    isAdmin 
+  });
+});
+
+
+
+  
 // delete group message
 socket.on("deleteGroupMessage", ({ groupId, messageId, senderId, groupUsers }) => {
   const deletedMsg = { groupId, messageId, isDeleted: true, deletedAt: new Date() };
