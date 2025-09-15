@@ -172,29 +172,7 @@ socket.on("privateMessage", ({ senderId, receiverId, message, messageId, timesta
 });
 
 
-// inside io.on("connection", (socket) => { ... })
 
-// WebRTC Signaling
-socket.on("offer", ({ to, from, sdp }) => {
-  const receiverSocketId = onlineUsers[to]; // map userId -> socketId
-  if (receiverSocketId) {
-    io.to(receiverSocketId).emit("offer", { from, sdp });
-  }
-});
-
-socket.on("answer", ({ to, from, sdp }) => {
-  const receiverSocketId = onlineUsers[to];
-  if (receiverSocketId) {
-    io.to(receiverSocketId).emit("answer", { from, sdp });
-  }
-});
-
-socket.on("ice-candidate", ({ to, from, candidate }) => {
-  const receiverSocketId = onlineUsers[to];
-  if (receiverSocketId) {
-    io.to(receiverSocketId).emit("ice-candidate", { from, candidate });
-  }
-});
 
 // update message
 socket.on("updateMessage", ({ chatId, senderId, receiverId, messageId, message }) => {
