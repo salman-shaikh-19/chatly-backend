@@ -172,18 +172,28 @@ socket.on("privateMessage", ({ senderId, receiverId, message, messageId, timesta
 });
 
 
-io.on("connection", (socket) => {
-  socket.on("offer", ({ to, from, sdp }) => {
-    io.to(to).emit("offer", { from, sdp });
-  });
+// inside io.on("connection", (socket) => { ... })
 
-  socket.on("answer", ({ to, from, sdp }) => {
-    io.to(to).emit("answer", { from, sdp });
-  });
+// WebRTC Signaling
+socket.on("offer", ({ to, from, sdp }) => {
+  const receiverSocketId = onlineUsers[to]; // map userId -> socketId
+  if (receiverSocketId) {
+    io.to(receiverSocketId).emit("offer", { from, sdp });
+  }
+});
 
-  socket.on("ice-candidate", ({ to, from, candidate }) => {
-    io.to(to).emit("ice-candidate", { from, candidate });
-  });
+socket.on("answer", ({ to, from, sdp }) => {
+  const receiverSocketId = onlineUsers[to];
+  if (receiverSocketId) {
+    io.to(receiverSocketId).emit("answer", { from, sdp });
+  }
+});
+
+socket.on("ice-candidate", ({ to, from, candidate }) => {
+  const receiverSocketId = onlineUsers[to];
+  if (receiverSocketId) {
+    io.to(receiverSocketId).emit("ice-candidate", { from, candidate });
+  }
 });
 
 // update message
