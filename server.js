@@ -249,6 +249,8 @@ socket.on("deleteAllGroupMessages", ({ groupId, senderId, groupUsers }) => {
       console.log(`User ${userId} logged out`);
       delete onlineUsers[userId];
       io.emit("onlineUsers", Object.keys(onlineUsers).map(Number));
+      const lastSeen = new Date().toISOString();
+         io.emit("lastSeenUpdate", { userId, lastSeen });
     }
   // console.log('logged out');
   if (typeof ack === "function") {
@@ -312,6 +314,8 @@ socket.on("disconnect", () => {
       if (onlineUsers[userId] === socket.id) {
         console.log(`Removing user ${userId} from onlineUsers`);
         delete onlineUsers[userId];
+        const lastSeen = new Date().toISOString();
+         io.emit("lastSeenUpdate", { userId, lastSeen });
       }
     }
     io.emit("onlineUsers", Object.keys(onlineUsers).map(Number));
