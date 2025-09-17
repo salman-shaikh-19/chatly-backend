@@ -290,7 +290,28 @@ socket.on("updateMessage", ({ chatId, senderId, receiverId, messageId, message }
 });
 
 
+socket.on('disappearingMessageChat', ({ chatId, expiryTime, isGroup, groupUsers }) => {
+  let participants = [];
 
+  if (isGroup) {
+    
+    participants = groupUsers.map(u => u.userId);
+  } else {
+    
+    participants = chatId.split('_');
+  }
+
+  participants.forEach((userId) => {
+    const socketId = onlineUsers[userId];
+    if (socketId) {
+      io.to(socketId).emit('disappearingMessageChat', { chatId, expiryTime });
+    }
+  });
+
+  console.log(
+    `Disappearing message timer set for ${isGroup ? 'group' : 'private chat'} ${chatId} with expiry ${expiryTime}`
+  );
+});
 
 
 
